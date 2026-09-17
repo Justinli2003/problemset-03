@@ -9,8 +9,16 @@ import math
 
 # search an unordered list L for a key x using iterate
 def isearch(L, x):
-    ###TODO
-    ###
+    """
+    Search an unordered list L for key x using `iterate`.
+
+    The accumulator is a boolean "have I seen x yet?", which starts at
+    False and is OR-ed with (element == x) at each step.
+
+    Work: W(n) = W(n-1) + O(1)  ==> O(n)
+    Span: S(n) = S(n-1) + O(1)  ==> O(n)   (iterate is inherently sequential)
+    """
+    return iterate(lambda found, y: found or y == x, False, L)
 
 def test_isearch():
     assert isearch([1, 3, 5, 4, 2, 9, 7], 2) == (2 in [1, 3, 5, 4, 2, 9, 7])
@@ -28,8 +36,19 @@ def iterate(f, x, a):
 
 # search an unordered list L for a key x using reduce
 def rsearch(L, x):
-    ###TODO
-    ###
+    """
+    Search an unordered list L for key x using `reduce`.
+
+    Note that `reduce` returns a[0] directly when |a| == 1 -- it never
+    applies f to the identity -- so the elements must already live in the
+    answer domain. We therefore preprocess (map) L into a list of booleans
+    (y == x) and then reduce those with logical OR, which is associative
+    with identity False.
+
+    Work: W(n) = 2W(n/2) + O(1) ==> O(n)
+    Span: S(n) = S(n/2)  + O(1) ==> O(log n)
+    """
+    return reduce(lambda a, b: a or b, False, [y == x for y in L])
 
 def test_rsearch():
     assert rsearch([1, 3, 5, 4, 2, 9, 7], 2) == (2 in [1, 3, 5, 4, 2, 9, 7])
@@ -103,8 +122,21 @@ def parens_update(current_output, next_input):
     Returns:
       the updated value of `current_output`
     """
-    ###TODO
-    ###
+    # `current_output` is the number of currently-open (unmatched left)
+    # parens, or None once we have seen a ')' with nothing to match it.
+    # None is "sticky": an input that goes invalid can never become valid
+    # again, e.g. ['(', 'a', ')', ')', '('] ends with a count of 0 but is
+    # NOT matched, so a plain counter is not enough.
+    if current_output is None:
+        return None
+    if next_input == '(':
+        return current_output + 1
+    elif next_input == ')':
+        if current_output == 0:
+            return None
+        return current_output - 1
+    else:
+        return current_output
 
 
 def test_parens_match_iterative():
@@ -135,10 +167,15 @@ def parens_match_scan(mylist):
     True
     >>>parens_match_scan(['('])
     False
-    
+
     """
-    ###TODO
-    ###
+    # map '(' -> 1, ')' -> -1, anything else -> 0
+    values = list(map(paren_map, mylist))
+    # inclusive prefix sums: prefixes[i] = (#open - #closed) in mylist[:i+1]
+    prefixes, total = scan(plus, 0, values)
+    # matched iff (1) every prefix has at least as many '(' as ')', i.e. no
+    # prefix sum ever drops below 0, and (2) the totals balance out at the end.
+    return total == 0 and reduce(min_f, 0, prefixes) >= 0
 
 def scan(f, id_, a):
     """
@@ -215,15 +252,31 @@ def parens_match_dc_helper(mylist):
       L is the number of unmatched left parentheses. This output is used by 
       parens_match_dc to return the final True or False value
     """
-    ###TODO
     # base cases
-    
+    if len(mylist) == 0:
+        return (0, 0)
+    elif len(mylist) == 1:
+        if mylist[0] == '(':
+            return (0, 1)     # one unmatched left
+        elif mylist[0] == ')':
+            return (1, 0)     # one unmatched right
+        else:
+            return (0, 0)     # any other character is irrelevant
+
     # recursive case
-    # - first solve subproblems
-    
+    # - first solve subproblems (these two calls are independent)
+    mid = len(mylist) // 2
+    i, j = parens_match_dc_helper(mylist[:mid])    # left half:  (R,L)
+    k, l = parens_match_dc_helper(mylist[mid:])    # right half: (R,L)
+
     # - then compute the solution (R,L) using these solutions, in constant time.
-    
-    ###
+    # The j unmatched '(' at the end of the left half sit immediately to the
+    # left of the k unmatched ')' at the start of the right half, so
+    # m = min(j, k) of them cancel each other out when we join the halves.
+    # Whatever is left over survives: the right half's leftover ')' join the
+    # left half's own unmatched ')', and vice versa for '('.
+    m = min(j, k)
+    return (i + (k - m), l + (j - m))
     
 
 def test_parens_match_dc():
